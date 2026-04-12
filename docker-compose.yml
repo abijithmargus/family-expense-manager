@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
+  # Shared PostgreSQL Database
   postgres:
     image: postgres:15
     container_name: expense_db
@@ -17,61 +17,60 @@ services:
     networks:
       - expense_network
 
-  # Backend API (FastAPI)
+  # Backend API
   backend:
     build: ./BE
-    container_name: expense_backend
+    container_name: ${ENV_NAME:-prod}_backend
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@postgres:5432/familymanager
-      ENVIRONMENT: production
+      ENVIRONMENT: ${ENV_NAME:-production}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
-      - "8000:8000"
+      - "${BE_PORT:-8000}:8000"
     depends_on:
       - postgres
     restart: always
     networks:
       - expense_network
-    # Note: app/main.py handles its own table creation/seeding on lifespan start
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
-  # Frontend (React + Vite)
+  # Frontend UI
   frontend:
     build: ./FE
-    container_name: expense_frontend
+    container_name: ${ENV_NAME:-prod}_frontend
     environment:
       VITE_API_URL: ${VITE_API_URL}
     ports:
-      - "5173:5173"
+      - "${FE_PORT:-5173}:5173"
     depends_on:
       - backend
     restart: always
     networks:
       - expense_network
-    # Uses 'serve' as defined in the Frontend Dockerfile for better performance
 
-  # Ngrok Tunnel for Backend
+  # Cloudflare Tunnel
+  cloudflare:
+    image: cloudflare/cloudflared:latest
+    container_name: ${ENV_NAME:-prod}_cloudflare
+    # Managed by CI/CD: tunnel --token <TOKEN> or tunnel --url http://frontend:5173
+    command: ${CLOUDFLARE_TUNNEL_CMD:-tunnel --url http://frontend:5173}
+    depends_on:
+      - frontend
+    restart: always
+    networks:
+      - expense_network
+
+  # Ngrok Tunnel (API - only used in specific scenarios)
   ngrok:
     image: ngrok/ngrok:latest
-    container_name: expense_ngrok
+    container_name: ${ENV_NAME:-prod}_ngrok
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTH_TOKEN}
     command: http backend:8000 --log=stdout
     depends_on:
       - backend
     ports:
-      - "4040:4040"
-    restart: always
-    networks:
-      - expense_network
-
-  # Cloudflare Tunnel for Frontend
-  cloudflare:
-    image: cloudflare/cloudflared:latest
-    container_name: expense_cloudflare
-    command: tunnel --url http://frontend:5173
-    depends_on:
-      - frontend
+      - "${NGROK_PORT:-4040}:4040"
     restart: always
     networks:
       - expense_network
@@ -82,3 +81,5 @@ networks:
 
 volumes:
   postgres_data:
+    # Explicitly named to ensure it's shared between docker-compose projects
+    external: false
