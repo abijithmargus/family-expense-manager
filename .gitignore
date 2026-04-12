@@ -1,0 +1,49 @@
+# [Elite Finance Manager] Unified Git Ignore
+
+# --- System & Dependencies ---
+node_modules/
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+
+# --- Environment & Credentials ---
+.env
+.env.local
+.env.*.local
+secrets.json
+*.pem
+*.key
+
+# --- Tunnels & Logs ---
+*.log
+cloudflared.log
+ngrok.log
+current_url.txt
+cloudflared.exe
+ngrok.exe
+
+# --- Project Artifacts ---
+/FE/dist/
+/FE/build/
+/BE/finance.db
+/BE/finance.db-journal
+/BE/__pycache__/
+*.exe
+
+# --- Editor & IDE ---
+.vscode/
+.idea/
+.claude/
+.gemini/
+.history/
+*.swp
+
+# --- Scratch & Imports ---
+expenses.csv
+/BE/import_expenses.py
+/BE/scripts/
