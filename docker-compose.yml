@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: expense_db
+    environment:
+      POSTGRES_DB: familymanager
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: always
+    networks:
+      - expense_network
+
+  # Backend API (FastAPI)
+  backend:
+    build: ./BE
+    container_name: expense_backend
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@postgres:5432/familymanager
+      ENVIRONMENT: production
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+    restart: always
+    networks:
+      - expense_network
+    # Note: app/main.py handles its own table creation/seeding on lifespan start
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  # Frontend (React + Vite)
+  frontend:
+    build: ./FE
+    container_name: expense_frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - expense_network
+    # Uses 'serve' as defined in the Frontend Dockerfile for better performance
+
+  # Ngrok Tunnel for Backend
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: expense_ngrok
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTH_TOKEN}
+    command: http backend:8000 --log=stdout
+    depends_on:
+      - backend
+    ports:
+      - "4040:4040"
+    restart: always
+    networks:
+      - expense_network
+
+  # Cloudflare Tunnel for Frontend
+  cloudflare:
+    image: cloudflare/cloudflared:latest
+    container_name: expense_cloudflare
+    command: tunnel --url http://frontend:5173
+    depends_on:
+      - frontend
+    restart: always
+    networks:
+      - expense_network
+
+networks:
+  expense_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
