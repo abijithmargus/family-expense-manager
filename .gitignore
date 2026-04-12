@@ -47,3 +47,11 @@ ngrok.exe
 expenses.csv
 /BE/import_expenses.py
 /BE/scripts/
+
+# --- Documentation Exclusions ---
+*.md
+!README.md
+*.puml
+.vite/
+/claude
+/swagger.yaml
