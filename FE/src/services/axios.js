@@ -1,9 +1,10 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://generator-ana-acrylic-billing.trycloudflare.com/api/v1',
+  baseURL: 'https://starship-morbidly-drowsily.ngrok-free.dev/api/v1',
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true'
   },
 });
 
