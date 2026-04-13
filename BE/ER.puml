@@ -1,0 +1,158 @@
+@startuml Family Finance Manager - Final PostgreSQL ERD (Production)
+!theme plain
+skinparam linetype ortho
+skinparam monochrome true
+
+entity "users" as users {
+  * id : serial <<PK>>
+  --
+  google_id : varchar(255) unique
+  name : varchar(100)
+  email : varchar(255) unique
+  role : enum <<super_admin/member>>
+  is_active : boolean
+  --
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "categories" as categories {
+  * id : serial <<PK>>
+  --
+  name : varchar(100) unique
+  type : enum <<income/expense>>
+  is_active : boolean
+  --
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "transactions" as transactions {
+  * id : serial <<PK>>
+  --
+  type : enum <<income/expense/transfer>>
+  amount : decimal(12,2)
+  date : date
+  notes : text
+
+  from_user_id : int <<FK>>
+  to_user_id : int <<FK>>
+
+  from_account_type : enum <<user/savings>>
+  to_account_type : enum <<user/savings>>
+
+  category_id : int <<FK>>
+  loan_id : int <<FK>>
+
+  purpose : enum <<normal/loan_payment/savings_contribution>>
+
+  created_by : int <<FK>>
+
+  --
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "loans" as loans {
+  * id : serial <<PK>>
+  --
+  name : varchar(100)
+  total_amount : decimal(12,2)
+  paid_amount : decimal(12,2)
+  remaining_amount : decimal(12,2)
+
+  interest_type : enum <<flat/reducing>>
+  interest_rate : decimal(5,4)
+
+  tenure_months : int
+  start_date : date
+
+  is_active : boolean
+
+  --
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "savings_pool" as savings_pool {
+  * id : serial <<PK>>
+  --
+  name : varchar(100) unique
+  current_balance : decimal(12,2)
+  total_contributions : decimal(12,2)
+  total_withdrawals : decimal(12,2)
+  --
+  updated_at : timestamp
+}
+
+entity "recurring_rules" as recurring_rules {
+  * id : serial <<PK>>
+  --
+  rule_type : enum <<savings_contribution/expense>>
+  amount : decimal(12,2)
+  frequency : enum <<daily/weekly/monthly/yearly>>
+
+  category_id : int <<FK>>
+  assigned_user_id : int <<FK>>
+
+  start_date : date
+  next_run_date : date
+  last_run_date : date
+
+  is_active : boolean
+
+  --
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "budgets" as budgets {
+  * id : serial <<PK>>
+  --
+  month_year : date <<first day of month>>
+  category_id : int <<FK>>
+  amount : decimal(12,2)
+
+  is_active : boolean
+
+  --
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity "error_logs" as error_logs {
+  * id : serial <<PK>>
+  --
+  error_message : text
+  stack_trace : text
+  endpoint : varchar(255)
+  method : varchar(10)
+  user_id : int <<FK>>
+  request_payload : jsonb
+  --
+  created_at : timestamp
+}
+
+' Relationships
+users ||--o{ transactions : from_user_id
+users ||--o{ transactions : to_user_id
+users ||--o{ transactions : created_by
+users ||--o{ recurring_rules : assigned_user_id
+users ||--o{ error_logs : user_id
+
+categories ||--o{ transactions : category_id
+categories ||--o{ recurring_rules : category_id
+categories ||--o{ budgets : category_id
+
+loans ||--o{ transactions : loan_id
+
+note bottom of transactions
+  Rules enforced in backend:
+  - Transfers do NOT affect income/expense
+  - Loan payments update loans.paid_amount & remaining_amount
+  - Savings contributions update savings_pool.total_contributions
+  - Savings withdrawals update savings_pool.total_withdrawals
+  - type & purpose must be consistent
+end note
+
+@enduml

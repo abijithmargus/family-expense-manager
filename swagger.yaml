@@ -1,0 +1,396 @@
+openapi: 3.1.0
+info:
+  title: Family Finance Manager API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail: { type: string }
+        error_code:
+          type: string
+          enum:
+            - PERMISSION_DENIED
+            - INVALID_TRANSACTION
+            - INSUFFICIENT_SAVINGS
+            - INVALID_TRANSFER
+
+    StandardResponse:
+      type: object
+      properties:
+        success: { type: boolean }
+        message: { type: string }
+        data: {}
+
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        role:
+          type: string
+          enum: [super_admin, member]
+
+    TransactionCreate:
+      type: object
+      required: [type, amount, date, idempotency_key]
+      properties:
+        idempotency_key: { type: string }
+        type:
+          type: string
+          enum: [income, expense, transfer]
+        amount: { type: number }
+        date:
+          type: string
+          format: date
+        notes: { type: string }
+        from_user_id: { type: integer, null : true }
+        to_user_id: { type: integer, null: true }
+        from_account_type:
+          type: string
+          enum: [user, savings]
+          null: true
+        to_account_type:
+          type: string
+          enum: [user, savings]
+          null: true
+        category_id: { type: integer, null: true }
+        loan_id: { type: integer, null: true }
+        purpose:
+          type: string
+          enum: [normal, loan_payment, savings_contribution]
+
+    TransactionResponse:
+      allOf:
+        - $ref: '#/components/schemas/TransactionCreate'
+      properties:
+        id: { type: integer }
+        created_by: { type: integer }
+        is_system_generated: { type: boolean }
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LoanCreate:
+      type: object
+      required: [name, total_amount, interest_type, start_date]
+      properties:
+        name: { type: string }
+        total_amount: { type: number }
+        interest_type:
+          type: string
+          enum: [flat, reducing]
+        interest_rate: { type: number }
+        tenure_months: { type: integer }
+        start_date:
+          type: string
+          format: date
+
+    LoanResponse:
+      allOf:
+        - $ref: '#/components/schemas/LoanCreate'
+      properties:
+        id: { type: integer }
+        paid_amount: { type: number }
+        remaining_amount: { type: number }
+        is_active: { type: boolean }
+
+    SavingsPoolResponse:
+      type: object
+      properties:
+        current_balance: { type: number }
+        total_contributions: { type: number }
+        total_withdrawals: { type: number }
+
+    RecurringRuleCreate:
+      type: object
+      required: [rule_type, amount, frequency, start_date]
+      properties:
+        rule_type:
+          type: string
+          enum: [savings_contribution, expense]
+        amount: { type: number }
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly, yearly]
+        category_id: { type: integer }
+        assigned_user_id: { type: integer }
+        start_date:
+          type: string
+          format: date
+
+    RecurringRuleResponse:
+      allOf:
+        - $ref: '#/components/schemas/RecurringRuleCreate'
+      properties:
+        id: { type: integer }
+        next_run_date:
+          type: string
+          format: date
+        last_run_date:
+          type: string
+          format: date
+        is_active: { type: boolean }
+
+    Budget:
+      type: object
+      properties:
+        id: { type: integer }
+        category_id: { type: integer }
+        month_year:
+          type: string
+          format: date
+        amount: { type: number }
+
+paths:
+
+  /api/v1/auth/google:
+    post:
+      tags: [Auth]
+      summary: Google Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id_token: { type: string }
+      responses:
+        '200':
+          description: Success
+
+  /api/v1/dashboard/summary:
+    get:
+      tags: [Dashboard]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: date_from
+          in: query
+          schema: { type: string, format: date }
+        - name: date_to
+          in: query
+          schema: { type: string, format: date }
+        - name: user_ids
+          in: query
+          schema:
+            type: array
+            items: { type: integer }
+      responses:
+        '200':
+          description: Summary
+
+  /api/v1/transactions:
+    post:
+      tags: [Transactions]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionCreate'
+      responses:
+        '201': { description: Created }
+
+    get:
+      tags: [Transactions]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: date_from
+          in: query
+          schema: { type: string, format: date }
+        - name: date_to
+          in: query
+          schema: { type: string, format: date }
+        - name: user_ids
+          in: query
+          schema:
+            type: array
+            items: { type: integer }
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [income, expense, transfer]
+        - name: purpose
+          in: query
+          schema:
+            type: string
+            enum: [normal, loan_payment, savings_contribution]
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [date, amount, created_at]
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+      responses:
+        '200': { description: List }
+
+  /api/v1/transactions/{id}:
+    get:
+      tags: [Transactions]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Success }
+
+    put:
+      tags: [Transactions]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Updated }
+
+    delete:
+      tags: [Transactions]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+
+  /api/v1/loans:
+    post:
+      tags: [Loans]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '201': { description: Created }
+
+    get:
+      tags: [Loans]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: List }
+
+  /api/v1/loans/{id}:
+    get:
+      tags: [Loans]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Success }
+
+    put:
+      tags: [Loans]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Updated }
+
+  /api/v1/savings/pool:
+    get:
+      tags: [Savings]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Savings state }
+
+  /api/v1/savings/withdraw:
+    post:
+      tags: [Savings]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Withdraw success }
+
+  /api/v1/recurring-rules:
+    post:
+      tags: [Recurring]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '201': { description: Created }
+
+    get:
+      tags: [Recurring]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: List }
+
+  /api/v1/recurring-rules/{id}:
+    put:
+      tags: [Recurring]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Updated }
+
+    delete:
+      tags: [Recurring]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+
+  /api/v1/budgets:
+    post:
+      tags: [Budgets]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '201': { description: Created }
+
+    get:
+      tags: [Budgets]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: List }
+
+  /api/v1/budgets/{id}:
+    put:
+      tags: [Budgets]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Updated }
+
+    delete:
+      tags: [Budgets]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: Deleted }
+
+  /api/v1/users:
+    get:
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      responses:
+        '200': { description: List users }
+
+tags:
+  - name: Auth
+  - name: Dashboard
+  - name: Transactions
+  - name: Loans
+  - name: Savings
+  - name: Recurring
+  - name: Budgets
+  - name: Users
