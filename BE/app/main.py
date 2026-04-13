@@ -53,7 +53,12 @@ app = FastAPI(title="Family Finance Manager API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5180",
+        "https://*.vercel.app",
+        "https://*.trycloudflare.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
