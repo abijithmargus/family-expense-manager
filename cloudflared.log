@@ -1,0 +1,32 @@
+2026-04-12T18:22:42Z INF Thank you for trying Cloudflare Tunnel. Doing so, without a Cloudflare account, is a quick way to experiment and try it out. However, be aware that these account-less Tunnels have no uptime guarantee, are subject to the Cloudflare Online Services Terms of Use (https://www.cloudflare.com/website-terms/), and Cloudflare reserves the right to investigate your use of Tunnels for violations of such terms. If you intend to use Tunnels in production you should use a pre-created named tunnel by following: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps
+2026-04-12T18:22:42Z INF Requesting new quick Tunnel on trycloudflare.com...
+2026-04-12T18:22:48Z INF +--------------------------------------------------------------------------------------------+
+2026-04-12T18:22:48Z INF |  Your quick Tunnel has been created! Visit it at (it may take some time to be reachable):  |
+2026-04-12T18:22:48Z INF |  https://calls-problems-earnings-southeast.trycloudflare.com                               |
+2026-04-12T18:22:48Z INF +--------------------------------------------------------------------------------------------+
+2026-04-12T18:22:48Z INF Cannot determine default configuration path. No file [config.yml config.yaml] in [~/.cloudflared ~/.cloudflare-warp ~/cloudflare-warp]
+2026-04-12T18:22:48Z INF Version 2026.3.0 (Checksum 59b12880b24af581cf5b1013db601c7d843b9b097e9c78aa5957c7f39f741885)
+2026-04-12T18:22:48Z INF GOOS: windows, GOVersion: go1.24.13, GoArch: amd64
+2026-04-12T18:22:48Z INF Settings: map[ha-connections:1 protocol:quic url:http://localhost:5173]
+2026-04-12T18:22:48Z INF cloudflared will not automatically update on Windows systems.
+2026-04-12T18:22:48Z INF Generated Connector ID: 6480f669-049e-4379-993f-cb28580b9a9a
+2026-04-12T18:22:48Z INF Initial protocol quic
+2026-04-12T18:22:48Z INF ICMP proxy will use 192.168.29.225 as source for IPv4
+2026-04-12T18:22:48Z INF ICMP proxy will use 2405:201:e005:40dd:fbdd:2475:37b7:2aee in zone Wi-Fi as source for IPv6
+2026-04-12T18:22:48Z INF cloudflared does not support loading the system root certificate pool on Windows. Please use --origin-ca-pool <PATH> to specify the path to the certificate pool
+2026-04-12T18:22:48Z INF ICMP proxy will use 192.168.29.225 as source for IPv4
+2026-04-12T18:22:48Z INF Tunnel connection curve preferences: [X25519MLKEM768 CurveP256] connIndex=0 event=0 ip=198.41.200.233
+2026-04-12T18:22:48Z INF ICMP proxy will use 2405:201:e005:40dd:fbdd:2475:37b7:2aee in zone Wi-Fi as source for IPv6
+2026-04-12T18:22:48Z INF Starting metrics server on 127.0.0.1:20241/metrics
+2026-04-12T18:22:49Z INF Registered tunnel connection connIndex=0 connection=74220ffa-2a46-44b2-80ab-d1b3c3389a51 event=0 ip=198.41.200.233 location=bom10 protocol=quic
+2026-04-12T18:25:53Z ERR  error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:5173: connectex: No connection could be made because the target machine actively refused it." connIndex=0 event=1 ingressRule=0 originService=http://localhost:5173
+2026-04-12T18:25:53Z ERR Request failed error="Unable to reach the origin service. The service may be down or it may not be responding to traffic from cloudflared: dial tcp [::1]:5173: connectex: No connection could be made because the target machine actively refused it." connIndex=0 dest=https://calls-problems-earnings-southeast.trycloudflare.com/ event=0 ip=198.41.200.233 type=ws
+2026-04-12T18:25:58Z INF Initiating graceful shutdown due to signal terminated ...
+2026-04-12T18:25:58Z ERR failed to run the datagram handler error="Application error 0x0 (remote)" connIndex=0 event=0 ip=198.41.200.233
+2026-04-12T18:25:58Z ERR failed to serve tunnel connection error="accept stream listener encountered a failure while serving" connIndex=0 event=0 ip=198.41.200.233
+2026-04-12T18:25:58Z ERR Serve tunnel error error="accept stream listener encountered a failure while serving" connIndex=0 event=0 ip=198.41.200.233
+2026-04-12T18:25:58Z INF Retrying connection in up to 1s connIndex=0 event=0 ip=198.41.200.233
+2026-04-12T18:25:58Z ERR Connection terminated connIndex=0
+2026-04-12T18:25:58Z ERR no more connections active and exiting
+2026-04-12T18:25:58Z INF Tunnel server stopped
+2026-04-12T18:25:58Z INF Metrics server stopped

@@ -1,0 +1,70 @@
+name: 🚀 Production Deploy (Main Backend)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy Backend to Production (Port 8000)
+    runs-on: [self-hosted, production]
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+    
+    - name: 🔐 Generate Prod Environment
+      run: |
+        @"
+        ENV_NAME=prod
+        BE_PORT=8000
+        NGROK_PORT=4040
+        PROJECT_NAME=finance-prod
+        DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+        GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+        NGROK_AUTH_TOKEN=${{ secrets.NGROK_AUTH_TOKEN }}
+        "@ | Out-File -FilePath .env -Encoding UTF8
+        Write-Host "✅ Prod .env created"
+    
+    - name: 🚀 Launch Production Stack
+      run: |
+        docker compose -p finance-prod down --remove-orphans
+        docker compose -p finance-prod build --no-cache
+        docker compose -p finance-prod up -d
+        Write-Host "Waiting for services..."
+        Start-Sleep -Seconds 15
+    
+    - name: 🩺 Health Check
+      run: |
+        $health = Invoke-RestMethod "http://localhost:8000/healthCheck" -ErrorAction Stop
+        if ($health.status -eq "ok") {
+          Write-Host "✅ Production Backend Healthy" -ForegroundColor Green
+        }
+
+    - name: 🛰️ Sync URL to Vercel (Production)
+      shell: pwsh
+      run: |
+        # 1. Get Ngrok URL
+        $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
+        $ngrokUrl = $tunnels.tunnels[0].public_url
+        $apiUrl = "$ngrokUrl/api/v1"
+        Write-Host "📍 Active Ngrok URL: $apiUrl"
+        
+        # 2. Update Vercel Env (using Vercel CLI)
+        npm install -g vercel@latest
+        # We use --token from secrets and --yes to skip interactive prompts
+        # Update VITE_API_URL for production
+        vercel env rm VITE_API_URL production --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
+        vercel env add VITE_API_URL production --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
+        
+        # 3. Trigger Production Build on Vercel
+        # We go into the FE directory and deploy
+        cd FE
+        vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+    
+    - name: 📱 Notify Telegram
+      if: success()
+      run: |
+        $message = "🚀 *PRODUCTION DEPLOY SUCCESSFUL*%0A💎 Status: Backend Online%0A🌐 UI: Synchronized to Vercel%0A🕐 Time: $(Get-Date)"
+        curl.exe -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=$message&parse_mode=Markdown"

@@ -1,0 +1,19 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api",
+    "ANTHROPIC_AUTH_TOKEN": "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",
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_MODEL": "nvidia/nemotron-3-super-120b-a12b:free"
+  }
+}
+
+// {
+//   "env": {
+//     "ANTHROPIC_BASE_URL": "http://127.0.0.1:8000",
+//     "ANTHROPIC_AUTH_TOKEN": "sk-local-bridge",
+//     "ANTHROPIC_API_KEY": "",
+//     "ANTHROPIC_MODEL": "claude-3-sonnet-20240229"
+//   }
+// }
+
+claude --resume 077a76d8-1f16-4c12-8924-348e691692d2
