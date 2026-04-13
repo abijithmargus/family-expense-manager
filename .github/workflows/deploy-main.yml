@@ -1,0 +1,51 @@
+name: 🚀 Production Deploy (Main)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy to Production (Port 8000/5173)
+    runs-on: [self-hosted, production]
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v3
+    
+    - name: 🔐 Generate Prod Environment
+      run: |
+        @"
+        ENV_NAME=prod
+        BE_PORT=8000
+        FE_PORT=5173
+        NGROK_PORT=4040
+        PROJECT_NAME=finance-prod
+        DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+        GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+        NGROK_AUTH_TOKEN=${{ secrets.NGROK_AUTH_TOKEN }}
+        CLOUDFLARE_TUNNEL_CMD=tunnel --token ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+        "@ | Out-File -FilePath .env -Encoding UTF8
+        Write-Host "✅ Prod .env created"
+    
+    - name: 🚀 Launch Production Stack
+      run: |
+        # Use -p to separate project instances in Docker
+        docker-compose -p finance-prod down --remove-orphans
+        docker-compose -p finance-prod build --no-cache
+        docker-compose -p finance-prod up -d
+        Start-Sleep -Seconds 15
+    
+    - name: 🩺 Health Check
+      run: |
+        $health = Invoke-RestMethod "http://localhost:8000/healthCheck" -ErrorAction Stop
+        if ($health.status -eq "ok") {
+          Write-Host "✅ Production Backend Healthy" -ForegroundColor Green
+        }
+    
+    - name: 📱 Notify Telegram
+      if: success()
+      run: |
+        $message = "🚀 *PRODUCTION DEPLOY SUCCESSFUL*%0A💎 Status: ONLINE%0A📱 Domain: [Protected/Permanent]%0A🕐 Time: $(Get-Date)"
+        curl.exe -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=$message&parse_mode=Markdown"
