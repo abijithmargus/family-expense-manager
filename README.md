@@ -8,7 +8,7 @@ A cinematic, high-performance financial command center for families. Built with 
 - **Wealth Ribbon Stat Scroller**: A high-density, thumb-friendly horizontal scroller for rapid financial metrics analysis on mobile devices.
 - **Elite Analytics**: Responsive, auto-scaling charts that adapt to your viewport for a "Fintech-Elite" reporting experience.
 - **QuickAction FAB**: A glowing Floating Action Button for lightning-fast entry of Expenses, Savings, and Loans.
-- **Unified Family Identity**: Cross-account tracking for the whole family (Abi, Angel, Appa, Amma) with secure Google OAuth 2.0 integration.
+- **Unified Family Identity**: Cross-account tracking for the whole family with secure Google OAuth 2.0 integration.
 
 ## 🛠 Tech Stack
 
