@@ -29,9 +29,9 @@ jobs:
     
     - name: 🚀 Launch Staging Stack
       run: |
-        docker-compose -p finance-dev down --remove-orphans
-        docker-compose -p finance-dev build --no-cache
-        docker-compose -p finance-dev up -d
+        docker compose -p finance-dev down --remove-orphans
+        docker compose -p finance-dev build --no-cache
+        docker compose -p finance-dev up -d
         Write-Host "Waiting for services..."
         Start-Sleep -Seconds 15
     
