@@ -32,7 +32,7 @@ jobs:
       run: |
         docker compose -p finance-dev down --remove-orphans
         docker compose -p finance-dev build
-        docker compose -p finance-dev up -d
+        docker compose -p finance-dev up -d backend postgres cloudflared
         Write-Host "Waiting for services..."
         Start-Sleep -Seconds 12
     
@@ -46,25 +46,25 @@ jobs:
     - name: Sync URL to Vercel (Preview)
       shell: powershell
       run: |
-        # 1. Wait for Ngrok Tunnel (Retry loop)
-        $ngrokUrl = ""
-        Write-Host "Waiting for Ngrok tunnel..."
-        for ($i=0; $i -lt 10; $i++) {
-            try {
-                $tunnels = Invoke-RestMethod http://localhost:4041/api/tunnels
-                $ngrokUrl = $tunnels.tunnels[0].public_url
-                if ($ngrokUrl) { break }
-            } catch { }
+        # 1. Scrape Cloudflare Tunnel URL from logs
+        $cfUrl = ""
+        Write-Host "Scraping Cloudflare Tunnel URL..."
+        for ($i=0; $i -lt 15; $i++) {
+            $logs = docker logs finance-dev-cloudflared-1 2>&1
+            if ($logs -match "https://.*\.trycloudflare\.com") {
+                $cfUrl = $matches[0]
+                break
+            }
             Start-Sleep -Seconds 3
         }
         
-        if (-not $ngrokUrl) {
-            Write-Error "Ngrok tunnel failed to start in time!"
+        if (-not $cfUrl) {
+            Write-Error "Cloudflare tunnel URL not found in logs!"
             exit 1
         }
         
-        $apiUrl = "$ngrokUrl/api/v1"
-        Write-Host "Active Staging Ngrok URL: $apiUrl"
+        $apiUrl = "$cfUrl/api/v1"
+        Write-Host "Active Staging Cloudflare URL: $apiUrl"
         
         # 2. Update Vercel Env (Check if installed first)
         $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
