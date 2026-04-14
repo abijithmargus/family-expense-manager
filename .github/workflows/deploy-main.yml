@@ -19,6 +19,7 @@ jobs:
         @"
         ENV_NAME=prod
         BE_PORT=8000
+        DB_PORT=5432
         NGROK_PORT=4040
         PROJECT_NAME=finance-prod
         DB_PASSWORD=${{ secrets.DB_PASSWORD }}
