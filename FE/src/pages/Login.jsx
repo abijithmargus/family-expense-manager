@@ -60,7 +60,7 @@ export const Login = () => {
         </div>
         
         <h1 className="text-4xl font-heading font-black text-white mb-2 tracking-[0.1em] uppercase">
-          Family <span className="text-primary-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Fin</span>
+          Familyy <span className="text-primary-500 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">Fin</span>
         </h1>
         <p className="text-slate-500 mb-10 text-center text-xs font-bold uppercase tracking-[0.2em] leading-relaxed max-w-[280px]">
           Precision Analytics <span className="text-slate-700">|</span> Unified Growth
