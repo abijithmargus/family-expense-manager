@@ -43,7 +43,7 @@ jobs:
         }
 
     - name: 🛰️ Sync URL to Vercel (Production)
-      shell: pwsh
+      shell: powershell
       run: |
         # 1. Get Ngrok URL
         $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
