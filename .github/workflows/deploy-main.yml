@@ -31,7 +31,7 @@ jobs:
     - name: 🚀 Launch Production Stack
       run: |
         docker compose -p finance-prod pull
-        docker compose -p finance-prod up -d backend postgres ngrok
+        docker compose -p finance-prod up -d backend ngrok
         Write-Host "Waiting for services..."
         Start-Sleep -Seconds 12
     

@@ -1,24 +1,10 @@
 services:
-  # Multi-Stack PostgreSQL Database
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: familymanager
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432" # Allows dev to use 5433, prod to use 5432
-    restart: always
-    networks:
-      - expense_network
 
   # Backend API (FastAPI)
   backend:
     build: ./BE
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@postgres:5432/familymanager
+      DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@host.docker.internal:5432/familymanager
       ENVIRONMENT: ${ENV_NAME:-production}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
     ports:
