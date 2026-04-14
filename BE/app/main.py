@@ -56,10 +56,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "http://localhost:5180",
-        "https://*.vercel.app",
-        "https://*.trycloudflare.com",
-        "https://*.ngrok-free.dev",
+        "https://family-expense-manager-one.vercel.app",
         "https://family-expense-manager.vercel.app",
+        "https://starship-morbidly-drowsily.ngrok-free.dev",
     ],
     allow_credentials=True,
     allow_methods=["*"],
