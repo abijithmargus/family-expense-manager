@@ -49,7 +49,7 @@ services:
   # Cloudflare Tunnel (Free parallel tunnel provider for Staging)
   cloudflared:
     image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --url http://backend:8000
+    command: tunnel --url http://backend:8000
     depends_on:
       - backend
     restart: always
