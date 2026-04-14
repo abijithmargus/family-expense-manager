@@ -50,26 +50,19 @@ jobs:
         $cfUrl = ""
         Write-Host "Scraping Cloudflare Tunnel URL..."
         for ($i=0; $i -lt 15; $i++) {
-            try {
-                # Capture logs as a single string
-                $logs = docker logs finance-dev-cloudflared-1 2>&1 | Out-String
-                
-                # Direct Regex Extraction (Heavy Duty)
-                $pattern = "https://[a-z0-9-]+\.trycloudflare\.com"
-                $match = [regex]::Match($logs, $pattern)
-                
-                if ($match.Success) {
-                    $cfUrl = $match.Value
-                    Write-Host "✅ Found URL: $cfUrl"
-                    break
-                }
-            } catch { }
+            # Use Select-String to find the URL in the log stream
+            $match = docker logs finance-dev-cloudflared-1 2>&1 | Select-String -Pattern "https://[a-z0-9-]+\.trycloudflare\.com"
+            if ($match) {
+                $cfUrl = $match.Matches[0].Value
+                Write-Host "✅ Found URL: $cfUrl"
+                break
+            }
             Start-Sleep -Seconds 3
         }
         
         if (-not $cfUrl) {
-            Write-Host "❌ URL NOT FOUND. Printing first 20 lines of logs for debugging:"
-            docker logs finance-dev-cloudflared-1 --tail 20
+            Write-Host "❌ URL NOT FOUND. Latest log snippet:"
+            docker logs finance-dev-cloudflared-1 --tail 10
             Write-Error "Cloudflare tunnel URL not found in logs!"
             exit 1
         }
