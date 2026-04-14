@@ -46,28 +46,32 @@ jobs:
     - name: Sync URL to Vercel (Preview)
       shell: powershell
       run: |
-        # 1. Scrape Cloudflare Tunnel URL (Advanced Muzzle)
+        # 1. Scrape Cloudflare Tunnel URL (Wide-Angle Search)
         $cfUrl = ""
         Write-Host "Scraping Cloudflare Tunnel URL..."
         
-        # Save old preference
+        # Muzzle PowerShell native errors
         $oldPreference = $ErrorActionPreference
         $ErrorActionPreference = 'SilentlyContinue'
         
         for ($i=0; $i -lt 15; $i++) {
-            # Capture logs into a variable, ignore native errors
-            $logs = & docker logs finance-dev-cloudflared-1 2>&1 | Out-String
+            # 1. Grab all logs
+            $logLines = & docker logs finance-dev-cloudflared-1 2>&1
             
-            # Search for the URL
-            if ($logs -match "https://[a-z0-9-]+\.trycloudflare\.com") {
-                $cfUrl = $matches[0]
-                Write-Host "✅ Found URL: $cfUrl"
-                break
+            # 2. Find the line containing the tunnel URL
+            $targetLine = $logLines | Select-String -Pattern "trycloudflare\.com" | Select-Object -First 1
+            
+            if ($targetLine) {
+                # 3. Precision extract the URL from the line
+                if ($targetLine.Line -match "https://[a-z0-9-]+\.trycloudflare\.com") {
+                    $cfUrl = $matches[0]
+                    Write-Host "✅ Found URL: $cfUrl"
+                    break
+                }
             }
             Start-Sleep -Seconds 3
         }
         
-        # Restore preference
         $ErrorActionPreference = $oldPreference
         
         if (-not $cfUrl) {
