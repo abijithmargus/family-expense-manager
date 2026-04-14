@@ -46,25 +46,10 @@ jobs:
     - name: Sync URL to Vercel (Production)
       shell: powershell
       run: |
-        # 1. Wait for Ngrok Tunnel (Retry loop)
-        $ngrokUrl = ""
-        Write-Host "Waiting for Ngrok tunnel..."
-        for ($i=0; $i -lt 10; $i++) {
-            try {
-                $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
-                $ngrokUrl = $tunnels.tunnels[0].public_url
-                if ($ngrokUrl) { break }
-            } catch { }
-            Start-Sleep -Seconds 3
-        }
-        
-        if (-not $ngrokUrl) {
-            Write-Error "Ngrok tunnel failed to start in time!"
-            exit 1
-        }
-        
+        # 1. Use Static Ngrok URL
+        $ngrokUrl = "https://starship-morbidly-drowsily.ngrok-free.dev"
         $apiUrl = "$ngrokUrl/api/v1"
-        Write-Host "Active Ngrok URL: $apiUrl"
+        Write-Host "Active Static Ngrok URL: $apiUrl"
         
         # 2. Update Vercel Env (Zero-Dependency API Sync)
         $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
