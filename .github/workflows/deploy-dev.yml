@@ -77,21 +77,45 @@ jobs:
         $apiUrl = "$cfUrl/api/v1"
         Write-Host "Active Staging Cloudflare URL: $apiUrl"
         
-        # 2. Update Vercel Env (Check if installed first)
+        # 2. Update Vercel Env (Zero-Dependency API Sync)
         $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
-        if (!(Get-Command vercel -ErrorAction SilentlyContinue)) {
-            Write-Host "Installing Vercel CLI..."
-            npm install -g vercel@latest
+        $PROJECT_NAME = "family-expense-manager"
+        $HEADERS = @{ 
+            Authorization = "Bearer $VERCEL_TOKEN"
+            "Content-Type" = "application/json"
         }
 
-        try { vercel env rm VITE_API_URL preview --token $VERCEL_TOKEN --yes } catch { }
-        vercel env add VITE_API_URL preview --token $VERCEL_TOKEN --yes $apiUrl
-        try { vercel env rm VITE_API_URL development --token $VERCEL_TOKEN --yes } catch { }
-        vercel env add VITE_API_URL development --token $VERCEL_TOKEN --yes $apiUrl
+        Write-Host "Syncing URL to Vercel API..."
         
-        # 3. Trigger Preview Build on Vercel
-        cd FE
-        vercel --token $VERCEL_TOKEN --yes
+        # A. Find and Delete existing Env IDs (Preview & Development)
+        $envs = Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Get
+        $targetEnvs = $envs.envs | Where-Object { $_.key -eq "VITE_API_URL" -and ($_.target -contains "preview" -or $_.target -contains "development") }
+        
+        foreach ($env in $targetEnvs) {
+            $id = $env.id
+            Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env/$id" -Headers $HEADERS -Method Delete
+        }
+        
+        # B. Add new URL for Preview and Development
+        $body = @{
+            key = "VITE_API_URL"
+            value = $apiUrl
+            type = "plain"
+            target = @("preview", "development")
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Post -Body $body
+        
+        # 3. Trigger Preview Redeploy (to pick up new env)
+        Write-Host "Triggering Vercel Preview Redeploy..."
+        $deployBody = @{
+            name = $PROJECT_NAME
+            gitSource = @{
+                type = "github"
+                repoId = "897365697" # abijithmargus/family-expense-manager
+                ref = "dev"
+            }
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://api.vercel.com/v13/deployments" -Headers $HEADERS -Method Post -Body $deployBody
     
     - name: 📱 Notify Telegram
       if: success()
