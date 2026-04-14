@@ -46,29 +46,33 @@ jobs:
     - name: Sync URL to Vercel (Preview)
       shell: powershell
       run: |
-        # 1. Scrape Cloudflare Tunnel URL (Using File Bypass)
+        # 1. Scrape Cloudflare Tunnel URL (Advanced Muzzle)
         $cfUrl = ""
         Write-Host "Scraping Cloudflare Tunnel URL..."
+        
+        # Save old preference
+        $oldPreference = $ErrorActionPreference
+        $ErrorActionPreference = 'SilentlyContinue'
+        
         for ($i=0; $i -lt 15; $i++) {
-            # Redirect logs to a file to avoid PowerShell 'NativeCommandError' panic
-            docker logs finance-dev-cloudflared-1 > cf_logs.txt 2>&1
+            # Capture logs into a variable, ignore native errors
+            $logs = & docker logs finance-dev-cloudflared-1 2>&1 | Out-String
             
-            if (Test-Path cf_logs.txt) {
-                # Read the file and look for the URL
-                $match = Get-Content cf_logs.txt | Select-String -Pattern "https://[a-z0-9-]+\.trycloudflare\.com"
-                if ($match) {
-                    $cfUrl = $match.Matches[0].Value
-                    Write-Host "✅ Found URL: $cfUrl"
-                    Remove-Item cf_logs.txt -Force
-                    break
-                }
+            # Search for the URL
+            if ($logs -match "https://[a-z0-9-]+\.trycloudflare\.com") {
+                $cfUrl = $matches[0]
+                Write-Host "✅ Found URL: $cfUrl"
+                break
             }
             Start-Sleep -Seconds 3
         }
         
+        # Restore preference
+        $ErrorActionPreference = $oldPreference
+        
         if (-not $cfUrl) {
             Write-Host "❌ URL NOT FOUND. Latest logs:"
-            if (Test-Path cf_logs.txt) { Get-Content cf_logs.txt -Tail 10 }
+            docker logs finance-dev-cloudflared-1 --tail 10
             Write-Error "Cloudflare tunnel URL not found in logs!"
             exit 1
         }
