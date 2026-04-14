@@ -32,8 +32,9 @@ export const Login = () => {
       await login(credentialResponse.credential);
       navigate('/');
     } catch (error) {
-      console.error(error);
-      setErrorMsg('Unauthorized context. Ensure this origin is whitelisted in Google Console.');
+      console.error("Auth Handshake Error:", error);
+      const msg = error.response?.data?.detail || error.response?.data?.message || error.message || 'Unknown Handshake Failure';
+      setErrorMsg(`Backend Error: ${msg}`);
     }
   };
 
