@@ -67,3 +67,9 @@ jobs:
       run: |
         $message = "🛠️ *STAGING DEPLOY SUCCESSFUL*%0A🌿 Status: Backend Online%0A🌐 UI: Sync'd to Vercel Preview%0A🕐 Time: $(Get-Date)"
         curl.exe -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=$message&parse_mode=Markdown"
+
+    - name: 🧹 Cleanup Old Images
+      if: always()
+      run: |
+        docker image prune -f
+        Write-Host "✨ Old images purged"
