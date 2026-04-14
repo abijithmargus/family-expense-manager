@@ -50,10 +50,15 @@ jobs:
         $cfUrl = ""
         Write-Host "Scraping Cloudflare Tunnel URL..."
         for ($i=0; $i -lt 15; $i++) {
-            $logs = docker logs finance-dev-cloudflared-1 2>&1
-            if ($logs -match "https://.*\.trycloudflare\.com") {
-                $cfUrl = $matches[0]
-                break
+            try {
+                # Capture everything (stdout and stderr) as a string
+                $logs = docker logs finance-dev-cloudflared-1 2>&1 | Out-String
+                if ($logs -match "https://.*\.trycloudflare\.com") {
+                    $cfUrl = $matches[0]
+                    break
+                }
+            } catch {
+                # Ignore errors during scraping (Cloudflare log output is weird)
             }
             Start-Sleep -Seconds 3
         }
