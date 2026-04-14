@@ -1,10 +1,9 @@
 version: '3.8'
 
 services:
-  # Shared PostgreSQL Database
+  # Multi-Stack PostgreSQL Database
   postgres:
     image: postgres:15
-    container_name: expense_db
     environment:
       POSTGRES_DB: familymanager
       POSTGRES_USER: postgres
@@ -12,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432" # Allows dev to use 5433, prod to use 5432
     restart: always
     networks:
       - expense_network
@@ -20,7 +19,6 @@ services:
   # Backend API (FastAPI)
   backend:
     build: ./BE
-    container_name: ${ENV_NAME:-prod}_backend
     environment:
       DATABASE_URL: postgresql+asyncpg://postgres:${DB_PASSWORD}@postgres:5432/familymanager
       ENVIRONMENT: ${ENV_NAME:-production}
@@ -37,7 +35,6 @@ services:
   # Ngrok Tunnel (Exposes API to Vercel/Internet)
   ngrok:
     image: ngrok/ngrok:latest
-    container_name: ${ENV_NAME:-prod}_ngrok
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTH_TOKEN}
     command: http backend:8000 --log=stdout
@@ -45,6 +42,16 @@ services:
       - backend
     ports:
       - "${NGROK_PORT:-4040}:4040"
+    restart: always
+    networks:
+      - expense_network
+
+  # Cloudflare Tunnel (Free parallel tunnel provider for Staging)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --url http://backend:8000
+    depends_on:
+      - backend
     restart: always
     networks:
       - expense_network

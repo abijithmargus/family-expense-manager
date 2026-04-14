@@ -19,6 +19,7 @@ jobs:
         @"
         ENV_NAME=prod
         BE_PORT=8000
+        DB_PORT=5432
         NGROK_PORT=4040
         PROJECT_NAME=finance-prod
         DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -30,10 +31,10 @@ jobs:
     - name: 🚀 Launch Production Stack
       run: |
         docker compose -p finance-prod down --remove-orphans
-        docker compose -p finance-prod build --no-cache
-        docker compose -p finance-prod up -d
+        docker compose -p finance-prod build
+        docker compose -p finance-prod up -d backend postgres ngrok
         Write-Host "Waiting for services..."
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 12
     
     - name: 🩺 Health Check
       run: |
@@ -42,26 +43,76 @@ jobs:
           Write-Host "✅ Production Backend Healthy" -ForegroundColor Green
         }
 
-    - name: 🛰️ Sync URL to Vercel (Production)
+    - name: Sync URL to Vercel (Production)
       shell: powershell
       run: |
-        # 1. Get Ngrok URL
-        $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
-        $ngrokUrl = $tunnels.tunnels[0].public_url
+        # 1. Wait for Ngrok Tunnel (Retry loop)
+        $ngrokUrl = ""
+        Write-Host "Waiting for Ngrok tunnel..."
+        for ($i=0; $i -lt 10; $i++) {
+            try {
+                $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
+                $ngrokUrl = $tunnels.tunnels[0].public_url
+                if ($ngrokUrl) { break }
+            } catch { }
+            Start-Sleep -Seconds 3
+        }
+        
+        if (-not $ngrokUrl) {
+            Write-Error "Ngrok tunnel failed to start in time!"
+            exit 1
+        }
+        
         $apiUrl = "$ngrokUrl/api/v1"
-        Write-Host "📍 Active Ngrok URL: $apiUrl"
+        Write-Host "Active Ngrok URL: $apiUrl"
         
-        # 2. Update Vercel Env (using Vercel CLI)
-        npm install -g vercel@latest
-        # We use --token from secrets and --yes to skip interactive prompts
-        # Update VITE_API_URL for production
-        vercel env rm VITE_API_URL production --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
-        vercel env add VITE_API_URL production --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
+        # 2. Update Vercel Env (Zero-Dependency API Sync)
+        $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
+        $PROJECT_NAME = "family-expense-manager"
+        $HEADERS = @{ 
+            Authorization = "Bearer $VERCEL_TOKEN"
+            "Content-Type" = "application/json"
+        }
+
+        Write-Host "Syncing URL to Vercel API..."
         
-        # 3. Trigger Production Build on Vercel
-        # We go into the FE directory and deploy
-        cd FE
-        vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        # A. Find existing Env ID
+        $envs = Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Get
+        $targetEnv = $envs.envs | Where-Object { $_.key -eq "VITE_API_URL" -and $_.target -contains "production" }
+        
+        # B. Delete if exists
+        if ($targetEnv) {
+            $envId = $targetEnv.id
+            Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env/$envId" -Headers $HEADERS -Method Delete
+        }
+        
+        # C. Add new URL
+        $body = @{
+            key = "VITE_API_URL"
+            value = $apiUrl
+            type = "plain"
+            target = @("production")
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Post -Body $body
+        
+        # 3. Trigger Production Redeploy (Self-Healing Repo Discovery)
+        Write-Host "Fetching Project Metadata from Vercel..."
+        $project = Invoke-RestMethod -Uri "https://api.vercel.com/v9/projects/$PROJECT_NAME" -Headers $HEADERS -Method Get
+        
+        $repoId = $project.link.repoId
+        $orgId = $project.link.orgId
+        $repoType = $project.link.type # e.g., github
+        
+        Write-Host "Triggering Vercel Redeploy for Repo ID: $repoId..."
+        $deployBody = @{
+            name = $PROJECT_NAME
+            gitSource = @{
+                type = $repoType
+                repoId = $repoId
+                ref = "main"
+            }
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://api.vercel.com/v13/deployments" -Headers $HEADERS -Method Post -Body $deployBody
     
     - name: 📱 Notify Telegram
       if: success()
@@ -69,8 +120,8 @@ jobs:
         $message = "🚀 *PRODUCTION DEPLOY SUCCESSFUL*%0A💎 Status: Backend Online%0A🌐 UI: Synchronized to Vercel%0A🕐 Time: $(Get-Date)"
         curl.exe -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=$message&parse_mode=Markdown"
 
-    - name: 🧹 Cleanup Old Images
+    - name: Cleanup Old Images
       if: always()
       run: |
         docker image prune -f
-        Write-Host "✨ Old images purged"
+        Write-Host "Old images purged"

@@ -19,6 +19,7 @@ jobs:
         @"
         ENV_NAME=dev
         BE_PORT=8080
+        DB_PORT=5433
         NGROK_PORT=4041
         PROJECT_NAME=finance-dev
         DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -30,10 +31,10 @@ jobs:
     - name: 🚀 Launch Staging Stack
       run: |
         docker compose -p finance-dev down --remove-orphans
-        docker compose -p finance-dev build --no-cache
-        docker compose -p finance-dev up -d
+        docker compose -p finance-dev build
+        docker compose -p finance-dev up -d backend postgres cloudflared
         Write-Host "Waiting for services..."
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 12
     
     - name: 🩺 Health Check
       run: |
@@ -42,25 +43,86 @@ jobs:
           Write-Host "✅ Staging Backend Healthy" -ForegroundColor Green
         }
 
-    - name: 🛰️ Sync URL to Vercel (Preview)
+    - name: Sync URL to Vercel (Preview)
       shell: powershell
       run: |
-        # 1. Get Ngrok URL for Dev (Port 4041)
-        $tunnels = Invoke-RestMethod http://localhost:4041/api/tunnels
-        $ngrokUrl = $tunnels.tunnels[0].public_url
-        $apiUrl = "$ngrokUrl/api/v1"
-        Write-Host "📍 Active Staging Ngrok URL: $apiUrl"
+        # 1. Scrape Cloudflare Tunnel URL (CMD Bypass Method)
+        $cfUrl = ""
+        Write-Host "Scraping Cloudflare Tunnel URL..."
         
-        # 2. Update Vercel Env (Preview/Development)
-        npm install -g vercel@latest
-        vercel env rm VITE_API_URL preview --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
-        vercel env add VITE_API_URL preview --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
-        vercel env rm VITE_API_URL development --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
-        vercel env add VITE_API_URL development --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
+        for ($i=0; $i -lt 15; $i++) {
+            # Use CMD to dump logs to avoid PowerShell 'ErrorStream' crashes
+            cmd /c "docker logs finance-dev-cloudflared-1 > cf_logs.txt 2>&1"
+            
+            if (Test-Path cf_logs.txt) {
+                # Read the WHOLE file (Quick Tunnel URL is at the top)
+                $match = Get-Content cf_logs.txt | Select-String -Pattern "https://[a-z0-9-]+\.trycloudflare\.com"
+                if ($match) {
+                    $cfUrl = $match.Matches[0].Value
+                    Write-Host "✅ Found URL: $cfUrl"
+                    Remove-Item cf_logs.txt -Force
+                    break
+                }
+            }
+            Start-Sleep -Seconds 3
+        }
         
-        # 3. Trigger Preview Build on Vercel
-        cd FE
-        vercel --token ${{ secrets.VERCEL_TOKEN }} --yes
+        if (-not $cfUrl) {
+            Write-Host "❌ URL NOT FOUND. Latest log from file:"
+            if (Test-Path cf_logs.txt) { Get-Content cf_logs.txt -Tail 10 }
+            Write-Error "Cloudflare tunnel URL not found in logs!"
+            exit 1
+        }
+        
+        $apiUrl = "$cfUrl/api/v1"
+        Write-Host "Active Staging Cloudflare URL: $apiUrl"
+        
+        # 2. Update Vercel Env (Zero-Dependency API Sync)
+        $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
+        $PROJECT_NAME = "family-expense-manager"
+        $HEADERS = @{ 
+            Authorization = "Bearer $VERCEL_TOKEN"
+            "Content-Type" = "application/json"
+        }
+
+        Write-Host "Syncing URL to Vercel API..."
+        
+        # A. Find and Delete existing Env IDs (Preview & Development)
+        $envs = Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Get
+        $targetEnvs = $envs.envs | Where-Object { $_.key -eq "VITE_API_URL" -and ($_.target -contains "preview" -or $_.target -contains "development") }
+        
+        foreach ($env in $targetEnvs) {
+            $id = $env.id
+            Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env/$id" -Headers $HEADERS -Method Delete
+        }
+        
+        # B. Add new URL for Preview and Development
+        $body = @{
+            key = "VITE_API_URL"
+            value = $apiUrl
+            type = "plain"
+            target = @("preview", "development")
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Post -Body $body
+        
+        # 3. Trigger Preview Redeploy (Self-Healing Repo Discovery)
+        Write-Host "Fetching Project Metadata from Vercel..."
+        $project = Invoke-RestMethod -Uri "https://api.vercel.com/v9/projects/$PROJECT_NAME" -Headers $HEADERS -Method Get
+        
+        $repoId = $project.link.repoId
+        $orgId = $project.link.orgId
+        $repoType = $project.link.type # e.g., github
+        
+        Write-Host "Triggering Vercel Preview Redeploy for Repo ID: $repoId..."
+        $deployBody = @{
+            name = $PROJECT_NAME
+            gitSource = @{
+                type = $repoType
+                repoId = $repoId
+                ref = "dev"
+            }
+        } | ConvertTo-Json
+        Invoke-RestMethod -Uri "https://api.vercel.com/v13/deployments" -Headers $HEADERS -Method Post -Body $deployBody
     
     - name: 📱 Notify Telegram
       if: success()
@@ -68,8 +130,8 @@ jobs:
         $message = "🛠️ *STAGING DEPLOY SUCCESSFUL*%0A🌿 Status: Backend Online%0A🌐 UI: Sync'd to Vercel Preview%0A🕐 Time: $(Get-Date)"
         curl.exe -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=$message&parse_mode=Markdown"
 
-    - name: 🧹 Cleanup Old Images
+    - name: Cleanup Old Images
       if: always()
       run: |
         docker image prune -f
-        Write-Host "✨ Old images purged"
+        Write-Host "Old images purged"
