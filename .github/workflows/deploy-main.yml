@@ -31,10 +31,10 @@ jobs:
     - name: 🚀 Launch Production Stack
       run: |
         docker compose -p finance-prod down --remove-orphans
-        docker compose -p finance-prod build --no-cache
+        docker compose -p finance-prod build
         docker compose -p finance-prod up -d
         Write-Host "Waiting for services..."
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 12
     
     - name: 🩺 Health Check
       run: |
@@ -52,17 +52,15 @@ jobs:
         $apiUrl = "$ngrokUrl/api/v1"
         Write-Host "Active Ngrok URL: $apiUrl"
         
-        # 2. Update Vercel Env (using Vercel CLI)
-        npm install -g vercel@latest
-        # We use --token from secrets and --yes to skip interactive prompts
-        # Update VITE_API_URL for production
-        vercel env rm VITE_API_URL production --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
-        vercel env add VITE_API_URL production --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
+        # 2. Update Vercel Env (using npx)
+        $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
+        # Try to remove old URL if it exists
+        try { npx vercel env rm VITE_API_URL production --token $VERCEL_TOKEN --yes } catch { }
+        npx vercel env add VITE_API_URL production --token $VERCEL_TOKEN --yes $apiUrl
         
         # 3. Trigger Production Build on Vercel
-        # We go into the FE directory and deploy
         cd FE
-        vercel --prod --token ${{ secrets.VERCEL_TOKEN }} --yes
+        npx vercel --prod --token $VERCEL_TOKEN --yes
     
     - name: 📱 Notify Telegram
       if: success()

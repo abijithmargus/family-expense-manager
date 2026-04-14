@@ -31,10 +31,10 @@ jobs:
     - name: 🚀 Launch Staging Stack
       run: |
         docker compose -p finance-dev down --remove-orphans
-        docker compose -p finance-dev build --no-cache
+        docker compose -p finance-dev build
         docker compose -p finance-dev up -d
         Write-Host "Waiting for services..."
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 12
     
     - name: 🩺 Health Check
       run: |
@@ -52,16 +52,16 @@ jobs:
         $apiUrl = "$ngrokUrl/api/v1"
         Write-Host "Active Staging Ngrok URL: $apiUrl"
         
-        # 2. Update Vercel Env (Preview/Development)
-        npm install -g vercel@latest
-        vercel env rm VITE_API_URL preview --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
-        vercel env add VITE_API_URL preview --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
-        vercel env rm VITE_API_URL development --token ${{ secrets.VERCEL_TOKEN }} --yes || $true
-        vercel env add VITE_API_URL development --token ${{ secrets.VERCEL_TOKEN }} --yes $apiUrl
+        # 2. Update Vercel Env (Preview/Development using npx)
+        $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
+        try { npx vercel env rm VITE_API_URL preview --token $VERCEL_TOKEN --yes } catch { }
+        npx vercel env add VITE_API_URL preview --token $VERCEL_TOKEN --yes $apiUrl
+        try { npx vercel env rm VITE_API_URL development --token $VERCEL_TOKEN --yes } catch { }
+        npx vercel env add VITE_API_URL development --token $VERCEL_TOKEN --yes $apiUrl
         
         # 3. Trigger Preview Build on Vercel
         cd FE
-        vercel --token ${{ secrets.VERCEL_TOKEN }} --yes
+        npx vercel --token $VERCEL_TOKEN --yes
     
     - name: 📱 Notify Telegram
       if: success()
