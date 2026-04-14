@@ -79,7 +79,7 @@ jobs:
         
         # 2. Update Vercel Env (Zero-Dependency API Sync)
         $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
-        $PROJECT_NAME = "family-expense-manager"
+        $PROJECT_NAME = "family-expense"
         $HEADERS = @{ 
             Authorization = "Bearer $VERCEL_TOKEN"
             "Content-Type" = "application/json"
