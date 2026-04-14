@@ -43,24 +43,42 @@ jobs:
           Write-Host "✅ Production Backend Healthy" -ForegroundColor Green
         }
 
-    - name: 🛰️ Sync URL to Vercel (Production)
+    - name: Sync URL to Vercel (Production)
       shell: powershell
       run: |
-        # 1. Get Ngrok URL
-        $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
-        $ngrokUrl = $tunnels.tunnels[0].public_url
+        # 1. Wait for Ngrok Tunnel (Retry loop)
+        $ngrokUrl = ""
+        Write-Host "Waiting for Ngrok tunnel..."
+        for ($i=0; $i -lt 10; $i++) {
+            try {
+                $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
+                $ngrokUrl = $tunnels.tunnels[0].public_url
+                if ($ngrokUrl) { break }
+            } catch { }
+            Start-Sleep -Seconds 3
+        }
+        
+        if (-not $ngrokUrl) {
+            Write-Error "Ngrok tunnel failed to start in time!"
+            exit 1
+        }
+        
         $apiUrl = "$ngrokUrl/api/v1"
         Write-Host "Active Ngrok URL: $apiUrl"
         
-        # 2. Update Vercel Env (using npx)
+        # 2. Update Vercel Env (Check if installed first)
         $VERCEL_TOKEN = "${{ secrets.VERCEL_TOKEN }}"
-        # Try to remove old URL if it exists
-        try { npx vercel env rm VITE_API_URL production --token $VERCEL_TOKEN --yes } catch { }
-        npx vercel env add VITE_API_URL production --token $VERCEL_TOKEN --yes $apiUrl
+        if (!(Get-Command vercel -ErrorAction SilentlyContinue)) {
+            Write-Host "Installing Vercel CLI..."
+            npm install -g vercel@latest
+        }
+
+        try { vercel env rm VITE_API_URL production --token $VERCEL_TOKEN --yes } catch { }
+        vercel env add VITE_API_URL production --token $VERCEL_TOKEN --yes $apiUrl
         
         # 3. Trigger Production Build on Vercel
         cd FE
-        npx vercel --prod --token $VERCEL_TOKEN --yes
+        vercel --prod --token $VERCEL_TOKEN --yes
     
     - name: 📱 Notify Telegram
       if: success()
