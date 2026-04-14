@@ -50,7 +50,7 @@ jobs:
         $tunnels = Invoke-RestMethod http://localhost:4040/api/tunnels
         $ngrokUrl = $tunnels.tunnels[0].public_url
         $apiUrl = "$ngrokUrl/api/v1"
-        Write-Host "📍 Active Ngrok URL: $apiUrl"
+        Write-Host "Active Ngrok URL: $apiUrl"
         
         # 2. Update Vercel Env (using Vercel CLI)
         npm install -g vercel@latest
@@ -70,8 +70,8 @@ jobs:
         $message = "🚀 *PRODUCTION DEPLOY SUCCESSFUL*%0A💎 Status: Backend Online%0A🌐 UI: Synchronized to Vercel%0A🕐 Time: $(Get-Date)"
         curl.exe -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}&text=$message&parse_mode=Markdown"
 
-    - name: 🧹 Cleanup Old Images
+    - name: Cleanup Old Images
       if: always()
       run: |
         docker image prune -f
-        Write-Host "✨ Old images purged"
+        Write-Host "Old images purged"
