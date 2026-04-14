@@ -51,15 +51,15 @@ jobs:
         Write-Host "Scraping Cloudflare Tunnel URL..."
         for ($i=0; $i -lt 15; $i++) {
             try {
-                # Capture everything (stdout and stderr) as a string
+                # Capture logs and find the TryCloudflare URL
                 $logs = docker logs finance-dev-cloudflared-1 2>&1 | Out-String
-                if ($logs -match "https://.*\.trycloudflare\.com") {
+                # Search for the specific trial URL pattern
+                if ($logs -match "https://[a-z0-9-]+\.trycloudflare\.com") {
                     $cfUrl = $matches[0]
+                    Write-Host "Found URL: $cfUrl"
                     break
                 }
-            } catch {
-                # Ignore errors during scraping (Cloudflare log output is weird)
-            }
+            } catch { }
             Start-Sleep -Seconds 3
         }
         
