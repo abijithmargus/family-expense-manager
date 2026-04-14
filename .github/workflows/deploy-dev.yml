@@ -46,37 +46,30 @@ jobs:
     - name: Sync URL to Vercel (Preview)
       shell: powershell
       run: |
-        # 1. Scrape Cloudflare Tunnel URL (Wide-Angle Search)
+        # 1. Scrape Cloudflare Tunnel URL (CMD Bypass Method)
         $cfUrl = ""
         Write-Host "Scraping Cloudflare Tunnel URL..."
         
-        # Muzzle PowerShell native errors
-        $oldPreference = $ErrorActionPreference
-        $ErrorActionPreference = 'SilentlyContinue'
-        
         for ($i=0; $i -lt 15; $i++) {
-            # 1. Grab all logs
-            $logLines = & docker logs finance-dev-cloudflared-1 2>&1
+            # Use CMD to dump logs to avoid PowerShell 'ErrorStream' crashes
+            cmd /c "docker logs finance-dev-cloudflared-1 > cf_logs.txt 2>&1"
             
-            # 2. Find the line containing the tunnel URL
-            $targetLine = $logLines | Select-String -Pattern "trycloudflare\.com" | Select-Object -First 1
-            
-            if ($targetLine) {
-                # 3. Precision extract the URL from the line
-                if ($targetLine.Line -match "https://[a-z0-9-]+\.trycloudflare\.com") {
-                    $cfUrl = $matches[0]
+            if (Test-Path cf_logs.txt) {
+                # Read the WHOLE file (Quick Tunnel URL is at the top)
+                $match = Get-Content cf_logs.txt | Select-String -Pattern "https://[a-z0-9-]+\.trycloudflare\.com"
+                if ($match) {
+                    $cfUrl = $match.Matches[0].Value
                     Write-Host "✅ Found URL: $cfUrl"
+                    Remove-Item cf_logs.txt -Force
                     break
                 }
             }
             Start-Sleep -Seconds 3
         }
         
-        $ErrorActionPreference = $oldPreference
-        
         if (-not $cfUrl) {
-            Write-Host "❌ URL NOT FOUND. Latest logs:"
-            docker logs finance-dev-cloudflared-1 --tail 10
+            Write-Host "❌ URL NOT FOUND. Latest log from file:"
+            if (Test-Path cf_logs.txt) { Get-Content cf_logs.txt -Tail 10 }
             Write-Error "Cloudflare tunnel URL not found in logs!"
             exit 1
         }
