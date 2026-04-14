@@ -105,13 +105,20 @@ jobs:
         } | ConvertTo-Json
         Invoke-RestMethod -Uri "https://api.vercel.com/v10/projects/$PROJECT_NAME/env" -Headers $HEADERS -Method Post -Body $body
         
-        # 3. Trigger Preview Redeploy (to pick up new env)
-        Write-Host "Triggering Vercel Preview Redeploy..."
+        # 3. Trigger Preview Redeploy (Self-Healing Repo Discovery)
+        Write-Host "Fetching Project Metadata from Vercel..."
+        $project = Invoke-RestMethod -Uri "https://api.vercel.com/v9/projects/$PROJECT_NAME" -Headers $HEADERS -Method Get
+        
+        $repoId = $project.link.repoId
+        $orgId = $project.link.orgId
+        $repoType = $project.link.type # e.g., github
+        
+        Write-Host "Triggering Vercel Preview Redeploy for Repo ID: $repoId..."
         $deployBody = @{
             name = $PROJECT_NAME
             gitSource = @{
-                type = "github"
-                repoId = "897365697" # abijithmargus/family-expense-manager
+                type = $repoType
+                repoId = $repoId
                 ref = "dev"
             }
         } | ConvertTo-Json
